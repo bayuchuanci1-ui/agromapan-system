@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Faktur Penjualan - PT. Agro Mapan Sentosa</title>
+<link rel="stylesheet" href="faktur_penjualan.css">
+</head>
+<body>
+<div class="header">
+  <div class="company">
+    <img src="../logo_agro_mapan.png" alt="Logo" style="height:60px">
+    <h2>PT. AGRO MAPAN SENTOSA</h2>
+    <div>Jln Raya Rawajitu Selatan</div>
+    <div>Email: agromapansentosa@gmail.com</div>
+  </div>
+  <div class="meta">
+    <h3>FAKTUR</h3>
+    <div>No: <span id="inv_no">INV-001</span></div>
+    <div>Tanggal: <span id="date">2025-10-16</span></div>
+    <div>Jatuh Tempo: <span id="due">2025-10-30</span></div>
+  </div>
+</div>
+
+<h4>Tagihan Kepada:</h4>
+<div id="customer">Nama Pelanggan<br/>Alamat Pelanggan</div>
+
+<table class="table">
+  <thead>
+    <tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr>
+  </thead>
+  <tbody id="items">
+    <tr><td>1</td><td>Pupuk NPK</td><td>10</td><td>50,000</td><td>500,000</td></tr>
+  </tbody>
+</table>
+
+<div class="total">Total: Rp <span id="total">500,000</span></div>
+
+<div class="no-print" style="margin-top:12px">
+  <button onclick="window.print()">Cetak</button>
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+Panduan singkat menggunakan template laporan stok:
+- Gunakan file template_input_stok.xlsx untuk mencatat setiap transaksi masuk/keluar.
+- Kolom 'type' gunakan 'in' untuk masuk (pembelian) dan 'out' untuk keluar (penjualan).
+- Setelah mengisi beberapa transaksi, update file laporan_stok.xlsx dengan menjumlahkan qty per produk.
+- Untuk backup, simpan copy file setiap minggu.

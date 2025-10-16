@@ -1,0 +1,8 @@
+
+body{font-family: Arial, sans-serif; margin:20px; color:#222}
+.header{display:flex; justify-content:space-between; align-items:center}
+.company{max-width:60%}
+.table{width:100%; border-collapse:collapse; margin-top:12px}
+.table th, .table td{border:1px solid #ccc; padding:8px}
+.total{text-align:right; margin-top:12px; font-weight:bold}
+@media print{ .no-print{display:none} }
