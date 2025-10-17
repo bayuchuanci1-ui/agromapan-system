@@ -256,6 +256,8 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 // initial render
 renderItemsList();
 
+}
+
 async function sendToDriveAndSheet(){
   // kumpulkan data dari halaman (sesuaikan id elemen Anda)
   const invoiceNo = document.getElementById('inv_no').textContent;
@@ -281,7 +283,7 @@ async function sendToDriveAndSheet(){
     subtotal, discount_pct, tax_pct, grand_total
   };
 
-  const webAppUrl = 'https://script.google.com/macros/s/AKfycbxOcF5A6Ol4APaztmfy1SWqO3ZZudc6bfobzWIQIwvO_Nq2wBp_HuPlvs0QRyOo3ZNC/exec'; // ganti dengan URL Apps Script Anda
+  const webAppUrl = 'https://script.google.com/macros/s/AKfycbw_766xl82xtvudakoaqZmcvsVqKHLiOazkSyBG-MTaiJzF_K3M59urnPKe3KbbqWdG3Q/exec'; // ganti dengan URL Apps Script Anda
   try {
     const res = await fetch(webAppUrl, {
       method: 'POST',
