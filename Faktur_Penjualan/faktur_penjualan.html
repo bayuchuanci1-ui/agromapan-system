@@ -86,6 +86,8 @@
     <div class="controls no-print">
       <button class="btn btn-primary" onclick="applyToInvoice()">Terapkan ke Faktur</button>
       <button class="btn btn-ghost" onclick="resetForm()">Reset Form</button>
+	  <button onclick="sendToDriveAndSheet()">Simpan ke Drive & Catat</button>
+
     </div>
   </div>
 
@@ -123,6 +125,7 @@
     <div style="margin-top:10px" class="no-print">
       <button class="btn btn-primary" onclick="printInvoice()">Cetak / Simpan PDF</button>
     </div>
+	
   </div>
 </div>
 
@@ -252,6 +255,50 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 
 // initial render
 renderItemsList();
+
+async function sendToDriveAndSheet(){
+  // kumpulkan data dari halaman (sesuaikan id elemen Anda)
+  const invoiceNo = document.getElementById('inv_no').textContent;
+  const date = document.getElementById('date').textContent;
+  const due = document.getElementById('due').textContent;
+  const customer = document.getElementById('customer').innerText;
+  const subtotal = Number(document.getElementById('subtotal').textContent.replace(/[^0-9]/g,'')) || 0;
+  const discount_pct = Number(document.getElementById('discount_pct').value) || 0;
+  const tax_pct = Number(document.getElementById('tax_pct').value) || 0;
+  const grand_total = Number(document.getElementById('grand_total').textContent.replace(/[^0-9]/g,'')) || 0;
+
+  const rows = Array.from(document.querySelectorAll('#invoice_items tr')).map(r => ({
+    name: r.cells[1].textContent,
+    qty: Number(r.cells[2].textContent),
+    price: Number(r.cells[3].textContent.replace(/[^0-9]/g,'')),
+    subtotal: Number(r.cells[4].textContent.replace(/[^0-9]/g,''))
+  }));
+
+  const payload = {
+    invoice_no: invoiceNo,
+    date, due, customer,
+    items: rows,
+    subtotal, discount_pct, tax_pct, grand_total
+  };
+
+  const webAppUrl = 'MASUKKAN_URL_WEB_APP_DISINI'; // ganti dengan URL Apps Script Anda
+  try {
+    const res = await fetch(webAppUrl, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const j = await res.json();
+    if(j.status === 'ok'){
+      alert('Faktur tersimpan ke Google Drive.\nLink PDF: ' + j.pdfUrl);
+    } else {
+      alert('Gagal: ' + (j.message || 'unknown'));
+    }
+  } catch(err){
+    alert('Error koneksi: ' + err.message);
+  }
+}
+
 </script>
 </body>
 </html>
