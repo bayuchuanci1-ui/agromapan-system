@@ -2,90 +2,179 @@
 <html>
 <head><meta charset="utf-8"><title>Nota Pembelian - PT. Agro Mapan Sentosa</title>
 <link rel="stylesheet" href="nota_pembelian.css">
-<style>.controls{margin-top:10px} .controls button{margin-right:6px;padding:6px 10px;border-radius:6px}</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* simple responsive form */
+.container{display:flex;flex-wrap:wrap;gap:20px}
+.left{flex:1 1 320px}
+.right{flex:1 1 420px; border:1px solid #eee;padding:12px;border-radius:8px;background:#fff}
+.field{margin-bottom:8px}
+.label{font-size:13px;color:#333;margin-bottom:4px}
+.input{width:100%;padding:8px;border-radius:6px;border:1px solid #ccc}
+.btn{padding:8px 12px;border-radius:6px;border:0;cursor:pointer}
+.btn-primary{background:#1f8dd6;color:white}
+.table{width:100%;border-collapse:collapse;margin-top:10px}
+.table th,.table td{border:1px solid #ccc;padding:8px}
+.no-print{display:block}
+@media print{ .no-print{display:none!important} }
+</style>
 </head>
 <body>
-<div class="header">
-  <div>
-    <img src="../logo_agro_mapan.png" style="height:60px">
-    <h3>PT. AGRO MAPAN SENTOSA</h3>
-    <div>Jln Raya Rawajitu Selatan</div>
-    <div>Email: agromapansentosa@gmail.com</div>
+<h3>Nota Pembelian - PT. AGRO MAPAN SENTOSA</h3>
+<p>Jln Raya Rawajitu Selatan — agromapansentosa@gmail.com</p>
+
+<div class="container">
+  <div class="left">
+    <div class="field"><div class="label">No. Nota</div><input id="pb_no_in" class="input" value="PB-2025-001"></div>
+    <div class="field"><div class="label">Tanggal</div><input id="pb_date_in" type="date" class="input"></div>
+    <div class="field"><div class="label">Supplier (nama / alamat)</div><textarea id="supplier_in" class="input" rows="3">Nama Supplier&#10;Alamat Supplier</textarea></div>
+
+    <h4>Item Pembelian</h4>
+    <div id="purchase_items_container"></div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="p_item_name" class="input" placeholder="Nama produk">
+      <input id="p_item_qty" class="input" placeholder="Qty" inputmode="numeric">
+      <input id="p_item_price" class="input" placeholder="Harga/unit" inputmode="numeric">
+      <button class="btn btn-primary" onclick="addPurchaseItem()">Tambah</button>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="field"><div class="label">Diskon (%)</div><input id="pb_discount_pct" class="input" value="0" inputmode="numeric"></div>
+      <div class="field"><div class="label">PPN (%)</div><input id="pb_tax_pct" class="input" value="11" inputmode="numeric"></div>
+    </div>
+
+    <div class="no-print" style="margin-top:8px">
+      <button class="btn btn-primary" onclick="applyToNote()">Terapkan ke Nota</button>
+      <button class="btn" onclick="resetNote()">Reset</button>
+    </div>
   </div>
-  <div class="meta">
-    <h3>NOTA PEMBELIAN</h3>
-    <div>No: <span id="pb_no">PB-2025-001</span></div>
-    <div>Tanggal: <span id="pb_date"></span></div>
+
+  <div class="right" id="note_area">
+    <div style="display:flex;justify-content:space-between">
+      <div>
+        <img src="../logo_agro_mapan.png" style="height:50px">
+        <div>PT. AGRO MAPAN SENTOSA</div>
+      </div>
+      <div style="text-align:right">
+        <div>No: <strong id="pb_no">PB-2025-001</strong></div>
+        <div>Tanggal: <span id="pb_date">2025-10-17</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px"><strong>Supplier:</strong><div id="supplier">Nama Supplier<br>Alamat Supplier</div></div>
+
+    <table class="table" id="pb_table">
+      <thead><tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
+      <tbody id="pb_items"></tbody>
+    </table>
+
+    <div style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between"><div>Subtotal</div><div>Rp <span id="pb_subtotal">0</span></div></div>
+      <div style="display:flex;justify-content:space-between"><div>Diskon (<span id="pb_disc_view">0</span>%)</div><div>- Rp <span id="pb_disc_amt">0</span></div></div>
+      <div style="display:flex;justify-content:space-between"><div>PPN (<span id="pb_tax_view">11</span>%)</div><div>Rp <span id="pb_tax_amt">0</span></div></div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold"><div>Total</div><div>Rp <span id="pb_total">0</span></div></div>
+    </div>
+
+    <div class="no-print" style="margin-top:8px">
+      <button class="btn btn-primary" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
   </div>
-</div>
-
-<h4>Supplier:</h4>
-<div id="supplier">Nama Supplier<br/>Alamat Supplier</div>
-
-<table class="table" id="tb_purchase">
-<thead><tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
-<tbody>
-<tr><td>1</td><td>Pupuk NPK</td><td>100</td><td>40,000</td><td>4,000,000</td></tr>
-</tbody>
-</table>
-
-<div style="margin-top:12px; font-weight:bold">Total: Rp <span id="pb_total">4,000,000</span></div>
-
-<div class="controls no-print">
-  <button onclick="editPurchase()">Edit Info</button>
-  <button onclick="addPurchaseItem()">Tambah Item</button>
-  <button onclick="window.print()">Cetak</button>
 </div>
 
 <script>
-// tanggal otomatis
+// init dates
 (function(){
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth()+1).padStart(2,'0');
-  const dd = String(today.getDate()).padStart(2,'0');
-  document.getElementById('pb_date').textContent = yyyy + '-' + mm + '-' + dd;
+  const t = new Date();
+  const yyyy = t.getFullYear(), mm = String(t.getMonth()+1).padStart(2,'0'), dd = String(t.getDate()).padStart(2,'0');
+  document.getElementById('pb_date_in').value = yyyy+'-'+mm+'-'+dd;
+  document.getElementById('pb_date').textContent = document.getElementById('pb_date_in').value;
 })();
 
-function editPurchase(){
-  const no = prompt("Nomor Nota Pembelian:", document.getElementById('pb_no').textContent) || document.getElementById('pb_no').textContent;
-  document.getElementById('pb_no').textContent = no;
-  const date = prompt("Tanggal (YYYY-MM-DD):", document.getElementById('pb_date').textContent) || document.getElementById('pb_date').textContent;
-  document.getElementById('pb_date').textContent = date;
-  const sup = prompt("Nama & Alamat Supplier (pisah dengan \\n):", document.getElementById('supplier').textContent) || document.getElementById('supplier').textContent;
-  document.getElementById('supplier').innerText = sup;
-}
+let p_items = [];
+
+function fmt(x){ return Number(x||0).toLocaleString('id-ID'); }
 
 function addPurchaseItem(){
-  const name = prompt("Nama produk:");
-  if(!name) return;
-  const qty = parseFloat(prompt("Qty:", "1")) || 1;
-  const price = parseFloat(prompt("Harga per unit (tanpa pemisah):", "0")) || 0;
-  const subtotal = qty * price;
-  const tbody = document.querySelector('#tb_purchase tbody');
-  const no = tbody.children.length + 1;
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<td>${no}</td><td>${name}</td><td>${qty}</td><td>${formatRupiah(price)}</td><td>${formatRupiah(subtotal)}</td>`;
-  tbody.appendChild(tr);
-  updatePBTotal();
+  const name = document.getElementById('p_item_name').value.trim();
+  const qty = Number(document.getElementById('p_item_qty').value) || 0;
+  const price = Number(document.getElementById('p_item_price').value) || 0;
+  if(!name){ alert('Isi nama produk'); return; }
+  if(qty<=0){ alert('Qty harus > 0'); return; }
+  p_items.push({name, qty, price});
+  document.getElementById('p_item_name').value=''; document.getElementById('p_item_qty').value=''; document.getElementById('p_item_price').value='';
+  renderPurchaseItems();
 }
 
-function updatePBTotal(){
-  let total = 0;
-  const rows = document.querySelectorAll('#tb_purchase tbody tr');
-  rows.forEach(r=>{
-    const sub = r.cells[4].textContent.replace(/[^0-9]/g,'');
-    total += parseFloat(sub || 0);
+function renderPurchaseItems(){
+  const cont = document.getElementById('purchase_items_container');
+  cont.innerHTML = '';
+  p_items.forEach((it,i)=>{
+    const row = document.createElement('div');
+    row.style.display='flex'; row.style.gap='8px'; row.style.marginBottom='6px';
+    row.innerHTML = `<div style="flex:1">${i+1}. <strong>${it.name}</strong></div>
+      <div style="width:70px;text-align:right">${it.qty}</div>
+      <div style="width:120px;text-align:right">Rp ${fmt(it.price)}</div>
+      <div style="width:120px;text-align:right">Rp ${fmt(it.qty*it.price)}</div>
+      <div><button onclick="removePItem(${i})" class="btn">Hapus</button></div>`;
+    cont.appendChild(row);
   });
-  document.getElementById('pb_total').textContent = formatRupiah(total);
+  updateNotePreview();
 }
 
-function formatRupiah(x){
-  if(!x && x!==0) return '';
-  const n = Number(x);
-  return n.toLocaleString('id-ID');
+function removePItem(i){ p_items.splice(i,1); renderPurchaseItems(); }
+
+function updateNotePreview(){
+  const tbody = document.getElementById('pb_items');
+  tbody.innerHTML = '';
+  let subtotal=0;
+  p_items.forEach((it,i)=>{
+    const tr = document.createElement('tr');
+    const sub = it.qty * it.price; subtotal += sub;
+    tr.innerHTML = `<td>${i+1}</td><td>${it.name}</td><td>${it.qty}</td><td>Rp ${fmt(it.price)}</td><td>Rp ${fmt(sub)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('pb_subtotal').textContent = fmt(subtotal);
+  const discPct = Number(document.getElementById('pb_discount_pct').value) || 0;
+  const discAmt = Math.round(subtotal * discPct / 100);
+  document.getElementById('pb_disc_view').textContent = discPct;
+  document.getElementById('pb_disc_amt').textContent = fmt(discAmt);
+  const taxPct = Number(document.getElementById('pb_tax_pct').value) || 0;
+  const taxable = subtotal - discAmt;
+  const taxAmt = Math.round(taxable * taxPct / 100);
+  document.getElementById('pb_tax_view').textContent = taxPct;
+  document.getElementById('pb_tax_amt').textContent = fmt(taxAmt);
+  document.getElementById('pb_total').textContent = fmt(taxable + taxAmt);
 }
+
+function applyToNote(){
+  document.getElementById('pb_no').textContent = document.getElementById('pb_no_in').value || document.getElementById('pb_no').textContent;
+  document.getElementById('pb_date').textContent = document.getElementById('pb_date_in').value || document.getElementById('pb_date').textContent;
+  document.getElementById('supplier').innerText = document.getElementById('supplier_in').value;
+  updateNotePreview();
+  alert('Data diterapkan ke nota. Klik Cetak untuk menyimpan PDF.');
+}
+
+function resetNote(){
+  if(!confirm('Reset nota?')) return;
+  p_items = [];
+  renderPurchaseItems();
+  document.getElementById('pb_no_in').value='PB-2025-001';
+  const t = new Date();
+  document.getElementById('pb_date_in').value = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  document.getElementById('supplier_in').value='Nama Supplier\nAlamat Supplier';
+  document.getElementById('pb_discount_pct').value = 0;
+  document.getElementById('pb_tax_pct').value = 11;
+  applyToNote();
+}
+
+// live update when percent changed
+document.getElementById('pb_discount_pct').addEventListener('input', updateNotePreview);
+document.getElementById('pb_tax_pct').addEventListener('input', updateNotePreview);
+document.getElementById('pb_date_in').addEventListener('change', ()=>{ document.getElementById('pb_date').textContent = document.getElementById('pb_date_in').value; });
+
+// initial
+renderPurchaseItems();
 </script>
-
 </body>
 </html>
