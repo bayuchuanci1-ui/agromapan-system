@@ -1,7 +1,9 @@
 <!doctype html>
 <html>
-<head><meta charset="utf-8"><title>Nota Pembelian</title>
-<link rel="stylesheet" href="nota_pembelian.css"></head>
+<head><meta charset="utf-8"><title>Nota Pembelian - PT. Agro Mapan Sentosa</title>
+<link rel="stylesheet" href="nota_pembelian.css">
+<style>.controls{margin-top:10px} .controls button{margin-right:6px;padding:6px 10px;border-radius:6px}</style>
+</head>
 <body>
 <div class="header">
   <div>
@@ -10,23 +12,80 @@
     <div>Jln Raya Rawajitu Selatan</div>
     <div>Email: agromapansentosa@gmail.com</div>
   </div>
-  <div>
+  <div class="meta">
     <h3>NOTA PEMBELIAN</h3>
-    <div>No: PB-001</div>
-    <div>Tanggal: 2025-10-16</div>
+    <div>No: <span id="pb_no">PB-2025-001</span></div>
+    <div>Tanggal: <span id="pb_date"></span></div>
   </div>
 </div>
 
 <h4>Supplier:</h4>
-<div>Nama Supplier<br/>Alamat Supplier</div>
+<div id="supplier">Nama Supplier<br/>Alamat Supplier</div>
 
-<table class="table">
+<table class="table" id="tb_purchase">
 <thead><tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
 <tbody>
 <tr><td>1</td><td>Pupuk NPK</td><td>100</td><td>40,000</td><td>4,000,000</td></tr>
 </tbody>
 </table>
 
-<div style="margin-top:12px; font-weight:bold">Total: Rp 4,000,000</div>
+<div style="margin-top:12px; font-weight:bold">Total: Rp <span id="pb_total">4,000,000</span></div>
+
+<div class="controls no-print">
+  <button onclick="editPurchase()">Edit Info</button>
+  <button onclick="addPurchaseItem()">Tambah Item</button>
+  <button onclick="window.print()">Cetak</button>
+</div>
+
+<script>
+// tanggal otomatis
+(function(){
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('pb_date').textContent = yyyy + '-' + mm + '-' + dd;
+})();
+
+function editPurchase(){
+  const no = prompt("Nomor Nota Pembelian:", document.getElementById('pb_no').textContent) || document.getElementById('pb_no').textContent;
+  document.getElementById('pb_no').textContent = no;
+  const date = prompt("Tanggal (YYYY-MM-DD):", document.getElementById('pb_date').textContent) || document.getElementById('pb_date').textContent;
+  document.getElementById('pb_date').textContent = date;
+  const sup = prompt("Nama & Alamat Supplier (pisah dengan \\n):", document.getElementById('supplier').textContent) || document.getElementById('supplier').textContent;
+  document.getElementById('supplier').innerText = sup;
+}
+
+function addPurchaseItem(){
+  const name = prompt("Nama produk:");
+  if(!name) return;
+  const qty = parseFloat(prompt("Qty:", "1")) || 1;
+  const price = parseFloat(prompt("Harga per unit (tanpa pemisah):", "0")) || 0;
+  const subtotal = qty * price;
+  const tbody = document.querySelector('#tb_purchase tbody');
+  const no = tbody.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${no}</td><td>${name}</td><td>${qty}</td><td>${formatRupiah(price)}</td><td>${formatRupiah(subtotal)}</td>`;
+  tbody.appendChild(tr);
+  updatePBTotal();
+}
+
+function updatePBTotal(){
+  let total = 0;
+  const rows = document.querySelectorAll('#tb_purchase tbody tr');
+  rows.forEach(r=>{
+    const sub = r.cells[4].textContent.replace(/[^0-9]/g,'');
+    total += parseFloat(sub || 0);
+  });
+  document.getElementById('pb_total').textContent = formatRupiah(total);
+}
+
+function formatRupiah(x){
+  if(!x && x!==0) return '';
+  const n = Number(x);
+  return n.toLocaleString('id-ID');
+}
+</script>
+
 </body>
 </html>
