@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <title>Faktur Penjualan - PT. Agro Mapan Sentosa</title>
 <link rel="stylesheet" href="faktur_penjualan.css">
+<style>
+/* sedikit tambahan styling untuk tombol edit */
+.controls { margin-top:10px }
+.controls button { margin-right:6px; padding:6px 10px; border-radius:6px; border:1px solid #bbb; background:#fff; cursor:pointer }
+.meta { text-align: right }
+.customer, .company { margin-top:8px }
+</style>
 </head>
 <body>
 <div class="header">
@@ -15,16 +22,16 @@
   </div>
   <div class="meta">
     <h3>FAKTUR</h3>
-    <div>No: <span id="inv_no">INV-001</span></div>
-    <div>Tanggal: <span id="date">2025-10-16</span></div>
+    <div>No: <span id="inv_no">INV-2025-001</span></div>
+    <div>Tanggal: <span id="date"></span></div>
     <div>Jatuh Tempo: <span id="due">2025-10-30</span></div>
   </div>
 </div>
 
 <h4>Tagihan Kepada:</h4>
-<div id="customer">Nama Pelanggan<br/>Alamat Pelanggan</div>
+<div id="customer" class="customer">Contoh Pelanggan<br/>Alamat Pelanggan</div>
 
-<table class="table">
+<table class="table" id="items_table">
   <thead>
     <tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr>
   </thead>
@@ -35,8 +42,66 @@
 
 <div class="total">Total: Rp <span id="total">500,000</span></div>
 
-<div class="no-print" style="margin-top:12px">
+<div class="controls no-print">
+  <button onclick="editInfo()">Edit Info</button>
+  <button onclick="addItemPrompt()">Tambah Item</button>
   <button onclick="window.print()">Cetak</button>
 </div>
+
+<script>
+// isi tanggal otomatis (tanggal hari ini)
+(function(){
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('date').textContent = yyyy + '-' + mm + '-' + dd;
+})();
+
+function editInfo(){
+  const inv = prompt("Nomor Faktur:", document.getElementById('inv_no').textContent) || document.getElementById('inv_no').textContent;
+  document.getElementById('inv_no').textContent = inv;
+
+  const date = prompt("Tanggal (YYYY-MM-DD):", document.getElementById('date').textContent) || document.getElementById('date').textContent;
+  document.getElementById('date').textContent = date;
+
+  const due = prompt("Jatuh Tempo (YYYY-MM-DD):", document.getElementById('due').textContent) || document.getElementById('due').textContent;
+  document.getElementById('due').textContent = due;
+
+  const cust = prompt("Nama & Alamat Pelanggan (pisah dengan \\n untuk baris baru):", document.getElementById('customer').textContent) || document.getElementById('customer').textContent;
+  document.getElementById('customer').innerText = cust;
+}
+
+function addItemPrompt(){
+  const name = prompt("Nama produk:");
+  if(!name) return;
+  const qty = parseFloat(prompt("Qty:", "1")) || 1;
+  const price = parseFloat(prompt("Harga per unit (tanpa pemisah):", "0")) || 0;
+  const subtotal = qty * price;
+  const tbody = document.getElementById('items');
+  const no = tbody.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${no}</td><td>${name}</td><td>${qty}</td><td>${formatRupiah(price)}</td><td>${formatRupiah(subtotal)}</td>`;
+  tbody.appendChild(tr);
+  updateTotal();
+}
+
+function updateTotal(){
+  let total = 0;
+  const rows = document.querySelectorAll('#items tr');
+  rows.forEach(r=>{
+    const sub = r.cells[4].textContent.replace(/[^0-9]/g,'');
+    total += parseFloat(sub || 0);
+  });
+  document.getElementById('total').textContent = formatRupiah(total);
+}
+
+function formatRupiah(x){
+  if(!x && x!==0) return '';
+  const n = Number(x);
+  return n.toLocaleString('id-ID');
+}
+</script>
+
 </body>
 </html>
