@@ -2,7 +2,7 @@
 File ZIP siap pakai berisi template faktur, laporan stok, dan nota pembelian untuk:
 **PT. AGRO MAPAN SENTOSA**
 
-Alamat: Jln Raya Rawajitu Selatan
+Alamat: Jln Raya Rawajitu Selatan, Tulang Bawang
 Email: agromapansentosa@gmail.com
 
 Folder:
