@@ -86,7 +86,7 @@
     <div class="controls no-print">
       <button class="btn btn-primary" onclick="applyToInvoice()">Terapkan ke Faktur</button>
       <button class="btn btn-ghost" onclick="resetForm()">Reset Form</button>
-	  <button class="btn btn-ghost" onclick="sendToDriveAndSheet()">Simpan ke Drive & Catat</button>
+	  <button class="btn btn-ghost" onclick="sendToAppsScriptJSONP()">Simpan ke Drive & Catat</button>
 
     </div>
   </div>
@@ -256,48 +256,41 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 // initial render
 renderItemsList();
 
-async function sendToDriveAndSheet(){
-  // kumpulkan data dari halaman (sesuaikan id elemen Anda)
-  const invoiceNo = document.getElementById('inv_no').textContent;
-  const date = document.getElementById('date').textContent;
-  const due = document.getElementById('due').textContent;
-  const customer = document.getElementById('customer').innerText;
-  const subtotal = Number(document.getElementById('subtotal').textContent.replace(/[^0-9]/g,'')) || 0;
-  const discount_pct = Number(document.getElementById('discount_pct').value) || 0;
-  const tax_pct = Number(document.getElementById('tax_pct').value) || 0;
-  const grand_total = Number(document.getElementById('grand_total').textContent.replace(/[^0-9]/g,'')) || 0;
-
-  const rows = Array.from(document.querySelectorAll('#invoice_items tr')).map(r => ({
-    name: r.cells[1].textContent,
-    qty: Number(r.cells[2].textContent),
-    price: Number(r.cells[3].textContent.replace(/[^0-9]/g,'')),
-    subtotal: Number(r.cells[4].textContent.replace(/[^0-9]/g,''))
-  }));
+/* --- JSONP send function (paste ke dalam <script> di faktur_penjualan.html) --- */
+function sendToAppsScriptJSONP(){
+  // ganti ini dengan URL Web App Anda
+  const webAppUrl = 'https://script.google.com/macros/s/AKfycbxR918bPRXexPWyhNmQa-LqWvGDAXgiw4MtcAbOc1zK25N7TkqkiUlehgYp_wx8QCic/exec';
 
   const payload = {
-    invoice_no: invoiceNo,
-    date, due, customer,
-    items: rows,
-    subtotal, discount_pct, tax_pct, grand_total
+    invoice_no: document.getElementById('inv_no').textContent,
+    date: document.getElementById('date').textContent,
+    due: document.getElementById('due').textContent,
+    customer: document.getElementById('customer').innerText,
+    subtotal: Number(document.getElementById('subtotal').textContent.replace(/[^0-9]/g,'')) || 0,
+    discount_pct: Number(document.getElementById('discount_pct').value) || 0,
+    tax_pct: Number(document.getElementById('tax_pct').value) || 0,
+    grand_total: Number(document.getElementById('grand_total').textContent.replace(/[^0-9]/g,'')) || 0
   };
 
-  const webAppUrl = 'https://script.google.com/macros/s/AKfycbzqugcjHPiNRVmub7Gvc9h4c_IVFrV9N5Oou9a79sH5ezyX_U-g7GEs1zUFhk7d8HFpZQ/exec'; // ganti dengan URL Apps Script Anda
-  try {
-    const res = await fetch(webAppUrl, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const j = await res.json();
-    if(j.status === 'ok'){
-      alert('Faktur tersimpan ke Google Drive.\nLink PDF: ' + j.pdfUrl);
-    } else {
-      alert('Gagal: ' + (j.message || 'unknown'));
-    }
-  } catch(err){
-    alert('Error koneksi: ' + err.message);
-  }
+  // callback handler
+  window._invoiceCallback = function(res){
+    console.log('JSONP response', res);
+    alert('Server: ' + (res.message || JSON.stringify(res)));
+    // cleanup
+    const s = document.getElementById('jsonp_invoke');
+    if(s) s.remove();
+    delete window._invoiceCallback;
+  };
+
+  // encode payload and call web app via script tag (JSONP)
+  const d = encodeURIComponent(JSON.stringify(payload));
+  const src = `${webAppUrl}?callback=_invoiceCallback&d=${d}`;
+  const script = document.createElement('script');
+  script.id = 'jsonp_invoke';
+  script.src = src;
+  document.body.appendChild(script);
 }
+
 
 </script>
 </body>
