@@ -256,39 +256,303 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 // initial render
 renderItemsList();
 
-// ====== GANTI SHEET_ID DI BAWAH ======
-const SHEET_ID = '15GwYHXDGaOhh-0fnRgNaLAc9xA-i1YwIK8Ns5lZkqFM'; // <-- ganti dengan ID sheet Anda
-
-function doGet(e) {
-  var callback = e.parameter.callback || 'callback';
-  var response = { status: 'ok', message: 'Web App JSONP aktif' };
-
-  if (e.parameter.d) {
-    try {
-      var payload = JSON.parse(decodeURIComponent(e.parameter.d));
-      // simpan ringkasan ke Google Sheets
-      var ss = SpreadsheetApp.openById(SHEET_ID);
-      var sheet = ss.getSheets()[0];
-      sheet.appendRow([
-        payload.invoice_no || '',
-        payload.date || '',
-        payload.due || '',
-        payload.customer || '',
-        payload.subtotal || 0,
-        payload.discount_pct || 0,
-        payload.tax_pct || 0,
-        payload.grand_total || 0
-      ]);
-      response.saved = true;
-    } catch(err) {
-      response.error = err.message;
-    }
-  }
-
-  var text = callback + '(' + JSON.stringify(response) + ');';
-  return ContentService.createTextOutput(text)
-    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Faktur Penjualan - PT. Agro Mapan Sentosa</title>
+<link rel="stylesheet" href="faktur_penjualan.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* tambahan style untuk form & layout */
+.container{display:flex;flex-wrap:wrap;gap:20px}
+.left{flex:1 1 320px; min-width:280px}
+.right{flex:1 1 420px; min-width:320px; border:1px solid #eee; padding:14px; border-radius:8px; background:#fafafa}
+.field{margin-bottom:10px}
+.label{font-size:13px;color:#333;margin-bottom:4px}
+.input, select{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px}
+.table{width:100%; border-collapse:collapse; margin-top:12px}
+.table th, .table td{border:1px solid #ccc; padding:8px; text-align:left}
+.controls{margin-top:12px; display:flex; gap:8px}
+.btn{padding:8px 12px;border-radius:6px;border:0;cursor:pointer}
+.btn-primary{background:#1f8dd6;color:white}
+.btn-ghost{background:#fff;border:1px solid #bbb}
+.summary{margin-top:12px}
+.summary-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #eee}
+.no-print{display:block}
+@media print{
+  .no-print{display:none !important}
+  body{margin:0}
+  .right{border:0;background:transparent}
 }
+.logo-small{height:50px}
+</style>
+</head>
+<body>
+<h2>PT. AGRO MAPAN SENTOSA</h2>
+<p>Jln Raya Rawajitu Selatan — agromapansentosa@gmail.com</p>
+
+<div class="container">
+  <!-- LEFT: Form Input -->
+  <div class="left">
+    <div class="field">
+      <div class="label">No. Faktur</div>
+      <input id="inv_no_in" class="input" value="INV-2025-001">
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <div style="flex:1" class="field">
+        <div class="label">Tanggal</div>
+        <input id="date_in" type="date" class="input">
+      </div>
+      <div style="flex:1" class="field">
+        <div class="label">Jatuh Tempo</div>
+        <input id="due_in" type="date" class="input">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">Pelanggan (nama / alamat)</div>
+      <textarea id="customer_in" class="input" rows="3">Contoh Pelanggan&#10;Alamat Pelanggan</textarea>
+    </div>
+
+    <hr>
+
+    <h4>Daftar Item</h4>
+    <div id="items_container">
+      <!-- rows inserted by JS -->
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="item_name" class="input" placeholder="Nama produk / deskripsi">
+      <input id="item_qty" class="input" placeholder="Qty" inputmode="numeric">
+      <input id="item_price" class="input" placeholder="Harga/unit" inputmode="numeric">
+      <button class="btn btn-primary" onclick="addItem()">Tambah</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="field">
+        <div class="label">Diskon (%)</div>
+        <input id="discount_pct" class="input" value="0" inputmode="numeric">
+      </div>
+      <div class="field">
+        <div class="label">PPN (%)</div>
+        <input id="tax_pct" class="input" value="11" inputmode="numeric">
+      </div>
+    </div>
+
+    <div class="controls no-print">
+      <button class="btn btn-primary" onclick="applyToInvoice()">Terapkan ke Faktur</button>
+      <button class="btn btn-ghost" onclick="resetForm()">Reset Form</button>
+	  <button class="btn btn-ghost" onclick="sendToAppsScriptJSONP()">Simpan ke Drive & Catat</button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Invoice Preview / Cetak -->
+  <div class="right" id="invoice_area">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <img src="../logo_agro_mapan.png" class="logo-small" alt="logo">
+        <h3 style="margin:6px 0 0 0">PT. AGRO MAPAN SENTOSA</h3>
+        <div>Jln Raya Rawajitu Selatan</div>
+        <div>Email: agromapansentosa@gmail.com</div>
+      </div>
+      <div style="text-align:right">
+        <div>No: <strong id="inv_no">INV-2025-001</strong></div>
+        <div>Tanggal: <span id="date">2025-10-17</span></div>
+        <div>Jatuh Tempo: <span id="due">2025-10-30</span></div>
+      </div>
+    </div>
+
+    <hr>
+    <div><strong>Tagihan Kepada:</strong><div id="customer">Contoh Pelanggan<br>Alamat Pelanggan</div></div>
+
+    <table class="table" id="invoice_table">
+      <thead><tr><th>No</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
+      <tbody id="invoice_items"></tbody>
+    </table>
+
+    <div class="summary">
+      <div class="summary-row"><div>Subtotal</div><div>Rp <span id="subtotal">0</span></div></div>
+      <div class="summary-row"><div>Diskon (<span id="discount_pct_view">0</span>%)</div><div>- Rp <span id="discount_amount">0</span></div></div>
+      <div class="summary-row"><div>PPN (<span id="tax_pct_view">11</span>%)</div><div>Rp <span id="tax_amount">0</span></div></div>
+      <div class="summary-row" style="font-weight:bold"><div>Grand Total</div><div>Rp <span id="grand_total">0</span></div></div>
+    </div>
+
+    <div style="margin-top:10px" class="no-print">
+      <button class="btn btn-primary" onclick="printInvoice()">Cetak / Simpan PDF</button>
+    </div>
+	
+  </div>
+</div>
+
+<script>
+// init dates
+(function(){
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('date_in').value = yyyy+'-'+mm+'-'+dd;
+  // default due +14 days
+  const due = new Date(today.getTime() + 14*24*60*60*1000);
+  const dy = due.getFullYear(), dm = String(due.getMonth()+1).padStart(2,'0'), dd2 = String(due.getDate()).padStart(2,'0');
+  document.getElementById('due_in').value = dy+'-'+dm+'-'+dd2;
+  // set preview dates
+  document.getElementById('date').textContent = document.getElementById('date_in').value;
+  document.getElementById('due').textContent = document.getElementById('due_in').value;
+  // default tax view
+  document.getElementById('tax_pct_view').textContent = document.getElementById('tax_pct').value;
+})();
+
+// items in-memory
+let items = [];
+
+// helper
+function fmt(x){ return Number(x||0).toLocaleString('id-ID'); }
+
+function addItem(){
+  const name = document.getElementById('item_name').value.trim();
+  const qty = Number(document.getElementById('item_qty').value) || 0;
+  const price = Number(document.getElementById('item_price').value) || 0;
+  if(!name){ alert('Isi nama produk'); return; }
+  if(qty<=0){ alert('Qty harus > 0'); return; }
+  items.push({name, qty, price});
+  document.getElementById('item_name').value=''; document.getElementById('item_qty').value=''; document.getElementById('item_price').value='';
+  renderItemsList();
+}
+
+function renderItemsList(){
+  const cont = document.getElementById('items_container');
+  cont.innerHTML = '';
+  items.forEach((it, i)=>{
+    const row = document.createElement('div');
+    row.style.display='flex'; row.style.gap='8px'; row.style.marginBottom='6px';
+    row.innerHTML = `<div style="flex:1">${i+1}. <strong>${it.name}</strong></div>
+      <div style="width:70px;text-align:right">${it.qty}</div>
+      <div style="width:120px;text-align:right">Rp ${fmt(it.price)}</div>
+      <div style="width:120px;text-align:right">Rp ${fmt(it.qty*it.price)}</div>
+      <div><button class="btn btn-ghost" onclick="removeItem(${i})">Hapus</button></div>`;
+    cont.appendChild(row);
+  });
+  updatePreview();
+}
+
+function removeItem(idx){ items.splice(idx,1); renderItemsList(); }
+
+function updatePreview(){
+  // update preview table
+  const tbody = document.getElementById('invoice_items');
+  tbody.innerHTML = '';
+  let subtotal = 0;
+  items.forEach((it,i)=>{
+    const tr = document.createElement('tr');
+    const sub = it.qty * it.price;
+    subtotal += sub;
+    tr.innerHTML = `<td>${i+1}</td><td>${it.name}</td><td>${it.qty}</td><td>Rp ${fmt(it.price)}</td><td>Rp ${fmt(sub)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('subtotal').textContent = fmt(subtotal);
+  // discount
+  const discPct = Number(document.getElementById('discount_pct').value) || 0;
+  const discAmount = Math.round(subtotal * discPct / 100);
+  document.getElementById('discount_pct_view').textContent = discPct;
+  document.getElementById('discount_amount').textContent = fmt(discAmount);
+  // tax
+  const taxPct = Number(document.getElementById('tax_pct').value) || 0;
+  const taxable = subtotal - discAmount;
+  const taxAmount = Math.round(taxable * taxPct / 100);
+  document.getElementById('tax_amount').textContent = fmt(taxAmount);
+  document.getElementById('tax_pct_view').textContent = taxPct;
+  // grand total
+  const grand = taxable + taxAmount;
+  document.getElementById('grand_total').textContent = fmt(grand);
+}
+
+function applyToInvoice(){
+  // set header fields
+  document.getElementById('inv_no').textContent = document.getElementById('inv_no_in').value || document.getElementById('inv_no').textContent;
+  document.getElementById('date').textContent = document.getElementById('date_in').value || document.getElementById('date').textContent;
+  document.getElementById('due').textContent = document.getElementById('due_in').value || document.getElementById('due').textContent;
+  document.getElementById('customer').innerText = document.getElementById('customer_in').value;
+  // update calculations
+  updatePreview();
+  alert('Data diterapkan ke faktur. Silakan klik Cetak jika ingin menyimpan PDF.');
+}
+
+function resetForm(){
+  if(!confirm('Reset semua item dan isian form?')) return;
+  items = [];
+  renderItemsList();
+  document.getElementById('inv_no_in').value='INV-2025-001';
+  // reset dates to today/due+14
+  const today = new Date();
+  const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,'0'), dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('date_in').value = yyyy+'-'+mm+'-'+dd;
+  const due = new Date(today.getTime()+14*24*60*60*1000); document.getElementById('due_in').value = due.getFullYear()+'-'+String(due.getMonth()+1).padStart(2,'0')+'-'+String(due.getDate()).padStart(2,'0');
+  document.getElementById('customer_in').value = 'Contoh Pelanggan\nAlamat Pelanggan';
+  document.getElementById('discount_pct').value = 0;
+  document.getElementById('tax_pct').value = 11;
+  applyToInvoice();
+}
+
+function printInvoice(){
+  // open print dialog for invoice_area only
+  window.print();
+}
+
+// live update when discount or tax changed
+document.getElementById('discount_pct').addEventListener('input', updatePreview);
+document.getElementById('tax_pct').addEventListener('input', updatePreview);
+
+// also update preview when date/customer inputs change
+document.getElementById('customer_in').addEventListener('input', ()=>{ document.getElementById('customer').innerText = document.getElementById('customer_in').value; });
+document.getElementById('date_in').addEventListener('change', ()=>{ document.getElementById('date').textContent = document.getElementById('date_in').value; });
+document.getElementById('due_in').addEventListener('change', ()=>{ document.getElementById('due').textContent = document.getElementById('due_in').value; });
+
+// initial render
+renderItemsList();
+
+/* --- JSONP send function (paste ke dalam <script> di faktur_penjualan.html) --- */
+function sendToAppsScriptJSONP(){
+  // ganti ini dengan URL Web App Anda
+  const webAppUrl = 'https://script.google.com/macros/s/AKfycbylIkrbpL2sFV7c5QIRym6KGCRi7B7RMK3NmBE9ekiVOKynF_IH6xX1DxnxlQOZGSck/exec';
+
+  const payload = {
+    invoice_no: document.getElementById('inv_no').textContent,
+    date: document.getElementById('date').textContent,
+    due: document.getElementById('due').textContent,
+    customer: document.getElementById('customer').innerText,
+    subtotal: Number(document.getElementById('subtotal').textContent.replace(/[^0-9]/g,'')) || 0,
+    discount_pct: Number(document.getElementById('discount_pct').value) || 0,
+    tax_pct: Number(document.getElementById('tax_pct').value) || 0,
+    grand_total: Number(document.getElementById('grand_total').textContent.replace(/[^0-9]/g,'')) || 0
+  };
+
+  // callback handler
+  window._invoiceCallback = function(res){
+    console.log('JSONP response', res);
+    alert('Server: ' + (res.message || JSON.stringify(res)));
+    // cleanup
+    const s = document.getElementById('jsonp_invoke');
+    if(s) s.remove();
+    delete window._invoiceCallback;
+  };
+
+  // encode payload and call web app via script tag (JSONP)
+  const d = encodeURIComponent(JSON.stringify(payload));
+  const src = `${webAppUrl}?callback=_invoiceCallback&d=${d}`;
+  const script = document.createElement('script');
+  script.id = 'jsonp_invoke';
+  script.src = src;
+  document.body.appendChild(script);
+}
+
+
+</script>
+</body>
+</html>
 
 
 }
