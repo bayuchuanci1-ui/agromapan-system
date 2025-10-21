@@ -256,175 +256,40 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 // initial render
 renderItemsList();
 
-/* --- JSONP send function (paste ke dalam <script> di faktur_penjualan.html) --- */
-function sendToAppsScriptJSONP(){
- // ====== CONFIG - GANTI INI ======
-const SHEET_ID = '15GwYHXDGaOhh-0fnRgNaLAc9xA-i1YwIK8Ns5lZkqFM';
-const DRIVE_FOLDER_ID = '1Q0k_oARh64oERQ67S5Y-vldKsNDQEgIo'; // kosongkan jika tidak pakai folder khusus
-// ===============================
+// ====== GANTI SHEET_ID DI BAWAH ======
+const SHEET_ID = '15GwYHXDGaOhh-0fnRgNaLAc9xA-i1YwIK8Ns5lZkqFM'; // <-- ganti dengan ID sheet Anda
 
-/*
-  JSONP handler: menerima parameter 'd' (payload JSON, url-encoded)
-  payload.items = [{product_code, name, qty, price, subtotal}, ...]
-*/
-function doGet(e){
+function doGet(e) {
   var callback = e.parameter.callback || 'callback';
-  var response = { status: 'error', message: 'No data' };
+  var response = { status: 'ok', message: 'Web App JSONP aktif' };
 
-  if(e.parameter.d){
+  if (e.parameter.d) {
     try {
       var payload = JSON.parse(decodeURIComponent(e.parameter.d));
-      // validate minimal fields
-      if(!payload.invoice_no) throw new Error('Missing invoice_no');
-      if(!payload.items || payload.items.length === 0) throw new Error('No items');
-
-      // open spreadsheet and sheets
+      // simpan ringkasan ke Google Sheets
       var ss = SpreadsheetApp.openById(SHEET_ID);
-      var stockSheet = ss.getSheetByName('Stock');
-      var moveSheet = ss.getSheetByName('Stock_Movements');
-      var invoiceSheet = ss.getSheetByName('Invoices') || ss.getSheets()[0];
-
-      if(!stockSheet) throw new Error('Sheet "Stock" not found. Buat sheet dengan header: product_code, product_name, stock_qty, unit_cost');
-      if(!moveSheet) throw new Error('Sheet "Stock_Movements" not found. Buat sheet dengan header: timestamp, product_code, product_name, change, type, ref_invoice, note');
-
-      // read stock into map (for faster lookup)
-      var stockData = stockSheet.getDataRange().getValues(); // includes header
-      var stockMap = {}; // product_code -> {row, product_name, stock_qty}
-      for(var i=1;i<stockData.length;i++){
-        var r = stockData[i];
-        var code = String(r[0]||'').trim();
-        if(!code) continue;
-        stockMap[code] = {
-          row: i+1, // sheet row index (1-based)
-          product_name: r[1] || '',
-          stock_qty: Number(r[2] || 0),
-          unit_cost: Number(r[3] || 0)
-        };
-      }
-
-      // 1) Validation pass: check stock availability for all items
-      var insufficient = [];
-      for(var j=0;j<payload.items.length;j++){
-        var it = payload.items[j];
-        var code = (it.product_code || '').trim();
-        var qty = Number(it.qty || it.quantity || it.q || 0);
-        if(!code){
-          insufficient.push({item: it, reason: 'missing product_code'});
-          continue;
-        }
-        var entry = stockMap[code];
-        if(!entry){
-          insufficient.push({item: it, reason: 'product not found in stock: ' + code});
-          continue;
-        }
-        if(qty > entry.stock_qty){
-          insufficient.push({item: it, reason: 'insufficient stock for ' + code + ' (have ' + entry.stock_qty + ', need ' + qty + ')'});
-          continue;
-        }
-      }
-
-      if(insufficient.length > 0){
-        // return error, do not modify anything
-        response = { status:'error', message: 'Stok tidak mencukupi / validasi gagal', details: insufficient };
-        var txt = callback + '(' + JSON.stringify(response) + ');';
-        return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JAVASCRIPT);
-      }
-
-      // 2) All OK => perform updates: reduce stock & append movement rows
-      var now = new Date();
-      var movements = []; // collect rows to append
-      for(var k=0;k<payload.items.length;k++){
-        var it2 = payload.items[k];
-        var code2 = (it2.product_code || '').trim();
-        var qty2 = Number(it2.qty || it2.quantity || it2.q || 0);
-        if(!code2) continue;
-        var mapEnt = stockMap[code2];
-        // update in-memory and sheet later
-        mapEnt.stock_qty = mapEnt.stock_qty - qty2;
-        stockMap[code2] = mapEnt;
-        movements.push([ formatDateTime(now), code2, mapEnt.product_name, -qty2, 'sale', payload.invoice_no, 'Auto reduced by invoice' ]);
-      }
-
-      // Write back updated stock quantities (batch)
-      var updates = [];
-      for(var key in stockMap){
-        var ent = stockMap[key];
-        // collect row, new qty
-        updates.push({row: ent.row, qty: ent.stock_qty});
-      }
-      // apply updates
-      updates.forEach(function(u){
-        stockSheet.getRange(u.row, 3).setValue(u.qty); // column C = stock_qty (col 3)
-      });
-
-      // append movements (one per item)
-      if(movements.length>0){
-        moveSheet.getRange(moveSheet.getLastRow()+1, 1, movements.length, movements[0].length).setValues(movements);
-      }
-
-      // 3) Save invoice summary to invoiceSheet (appendRow)
-      var invRow = [
-        payload.invoice_no,
+      var sheet = ss.getSheets()[0];
+      sheet.appendRow([
+        payload.invoice_no || '',
         payload.date || '',
         payload.due || '',
         payload.customer || '',
         payload.subtotal || 0,
         payload.discount_pct || 0,
         payload.tax_pct || 0,
-        payload.grand_total || 0,
-        '' // pdf link placeholder
-      ];
-      invoiceSheet.appendRow(invRow);
-
-      // Optionally: create PDF and save to Drive (if DRIVE_FOLDER_ID set)
-      var pdfUrl = '';
-      try {
-        if(typeof payload.items !== 'undefined' && payload.items.length>0){
-          var html = buildInvoiceHtml(payload);
-          var pdfBlob = HtmlService.createHtmlOutput(html).getBlob().setName(payload.invoice_no + '.pdf');
-          var file;
-          if(DRIVE_FOLDER_ID){
-            var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-            file = folder.createFile(pdfBlob);
-          } else {
-            file = DriveApp.createFile(pdfBlob);
-          }
-          pdfUrl = file.getUrl();
-          // update last invoice row with pdfUrl (last row)
-          var lastRow = invoiceSheet.getLastRow();
-          invoiceSheet.getRange(lastRow, 9).setValue(pdfUrl);
-        }
-      } catch(pdfErr){
-        // ignore pdf errors but include in response
-        pdfUrl = '';
-      }
-
-      response = { status:'ok', message: 'Invoice saved and stock updated', pdfUrl: pdfUrl };
-    } catch(errMain){
-      response = { status:'error', message: errMain.message };
+        payload.grand_total || 0
+      ]);
+      response.saved = true;
+    } catch(err) {
+      response.error = err.message;
     }
   }
 
-  var out = callback + '(' + JSON.stringify(response) + ');';
-  return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  var text = callback + '(' + JSON.stringify(response) + ');';
+  return ContentService.createTextOutput(text)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
-
-// helper: build minimal invoice HTML (used for PDF)
-function buildInvoiceHtml(d){
-  var rows = '';
-  (d.items||[]).forEach(function(it,i){
-    rows += '<tr><td style="border:1px solid #ccc;padding:6px">'+(i+1)+'</td><td style="border:1px solid #ccc;padding:6px">'+escapeHtml(it.name||it.product_name||'')+'</td><td style="border:1px solid #ccc;padding:6px;text-align:right">'+it.qty+'</td><td style="border:1px solid #ccc;padding:6px;text-align:right">'+Number(it.price||0).toLocaleString('id-ID')+'</td><td style="border:1px solid #ccc;padding:6px;text-align:right">'+Number(it.subtotal||0).toLocaleString('id-ID')+'</td></tr>';
-  });
-  return '<html><body style="font-family:Arial;font-size:12px"><h2>PT. AGRO MAPAN SENTOSA</h2><div>No: '+escapeHtml(d.invoice_no)+'</div><div>Tanggal: '+escapeHtml(d.date||'')+'</div><div><strong>Pelanggan:</strong><br/>'+escapeHtml(d.customer||'').replace(/\n/g,'<br/>')+'</div><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="border:1px solid #ccc;padding:6px">No</th><th style="border:1px solid #ccc;padding:6px">Produk</th><th style="border:1px solid #ccc;padding:6px;text-align:right">Qty</th><th style="border:1px solid #ccc;padding:6px;text-align:right">Harga</th><th style="border:1px solid #ccc;padding:6px;text-align:right">Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table><div style="margin-top:8px">Subtotal: Rp '+Number(d.subtotal||0).toLocaleString('id-ID')+'</div><div>Diskon: '+(d.discount_pct||0)+'%</div><div>PPN: '+(d.tax_pct||0)+'%</div><div style="font-weight:bold">Grand Total: Rp '+Number(d.grand_total||0).toLocaleString('id-ID')+'</div></body></html>';
-}
-
-function escapeHtml(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function formatDateTime(dt){
-  if(!dt) dt = new Date();
-  return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-}
 
 }
 
