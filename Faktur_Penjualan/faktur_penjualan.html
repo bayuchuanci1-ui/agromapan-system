@@ -259,28 +259,85 @@ renderItemsList();
 
 /* --- JSONP send function (paste ke dalam <script> di faktur_penjualan.html) --- */
 function sendToGoogleForm() {
-  const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfax5UDB3lv1_T_8Dt1sLG4ZcCS2iU_TGTFa6sxgymhidw9Iw/formResponse"; // URL kirim form
-  
-  const data = new FormData();
-  data.append("entry.1812999661", document.getElementById('inv_no').textContent); // No Faktur
-  data.append("entry.1055333544", document.getElementById('date').textContent); // Tanggal
-  data.append("entry.1722081702", document.getElementById('due').textContent); // Jatuh Tempo
-  data.append("entry.1368283216", document.getElementById('customer').innerText); // Pelanggan
-  data.append("entry.1542407044", document.getElementById('subtotal').textContent); // Subtotal
-  data.append("entry.493669221", document.getElementById('discount_pct').value); // Diskon (%)
-  data.append("entry.2073823628", document.getElementById('tax_pct').value); // PPN (%)
-  data.append("entry.2004023891", document.getElementById('grand_total').textContent); // Total Akhir
-  data.append("entry.978023283", JSON.stringify(items)); // Barang dalam JSON
+  try {
+    const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfax5UDB3lv1_T_8Dt1sLG4ZcCS2iU_TGTFa6sxgymhidw9Iw/formResponse";
 
-  fetch(formUrl, { method: "POST", mode: "no-cors", body: data })
-    .then(() => {
-      alert("✅ Faktur berhasil dikirim ke Google Sheet!");
-      console.log("Data dikirim:", Object.fromEntries(data));
-    })
-    .catch(err => {
-      alert("❌ Gagal mengirim data: " + err.message);
-      console.error(err);
-    });
+    // build payload values (text content and inputs)
+    const invNo = (document.getElementById('inv_no') || {}).textContent || '';
+    const date = (document.getElementById('date') || {}).textContent || '';
+    const due = (document.getElementById('due') || {}).textContent || '';
+    const customer = (document.getElementById('customer') || {}).innerText || '';
+    const subtotal = (document.getElementById('subtotal') || {}).textContent || '';
+    const discount = (document.getElementById('discount_pct') || {}).value || '';
+    const tax = (document.getElementById('tax_pct') || {}).value || '';
+    const total = (document.getElementById('grand_total') || {}).textContent || '';
+    const itemsJson = JSON.stringify(window.items || []);
+
+    // create hidden iframe (target)
+    const iframeName = 'hidden_iframe_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeName;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // create form
+    const form = document.createElement('form');
+    form.style.display = 'none';
+    form.method = 'POST';
+    form.action = formUrl;
+    form.target = iframeName;
+
+    // helper to append input fields
+    function add(name, value){
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
+
+    // append each entry ID + value (use entry IDs you provided)
+    add('entry.1812999661', invNo);         // No Faktur
+    add('entry.1055333544', date);          // Tanggal
+    add('entry.1722081702', due);           // Jatuh Tempo
+    add('entry.1368283216', customer);      // Pelanggan
+    add('entry.1542407044', subtotal);      // Subtotal
+    add('entry.493669221', discount);       // Diskon (%)
+    add('entry.2073823628', tax);           // PPN (%)
+    add('entry.2004023891', total);         // Total Akhir
+    add('entry.978023283', itemsJson);      // Daftar Barang (JSON)
+
+    document.body.appendChild(form);
+
+    // optional: detect iframe load to show success/failure
+    let done = false;
+    const timeout = setTimeout(()=> {
+      if(!done){
+        alert('Permintaan dikirim — jika belum muncul di Sheet, tunggu 10–30 detik lalu refresh Sheet.');
+        cleanup();
+      }
+    }, 4000); // 4s fallback
+
+    iframe.onload = function(){
+      done = true;
+      clearTimeout(timeout);
+      // Google Forms biasanya mengembalikan halaman terima kasih di iframe.
+      alert('✅ Faktur dikirim. Cek Google Sheet (Responses) dalam beberapa detik.');
+      cleanup();
+    };
+
+    function cleanup(){
+      // bersihkan elemen
+      try{ form.remove(); } catch(e){}
+      try{ iframe.remove(); } catch(e){}
+    }
+
+    // finally submit
+    form.submit();
+  } catch(err) {
+    console.error(err);
+    alert('Gagal submit ke Google Form: ' + (err.message || err));
+  }
 }
 
 
