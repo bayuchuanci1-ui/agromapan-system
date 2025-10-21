@@ -86,7 +86,8 @@
     <div class="controls no-print">
       <button class="btn btn-primary" onclick="applyToInvoice()">Terapkan ke Faktur</button>
       <button class="btn btn-ghost" onclick="resetForm()">Reset Form</button>
-	  <button class="btn btn-ghost" onclick="sendToAppsScriptJSONP()">Simpan ke Drive & Catat</button>
+	  <<button class="btn btn-primary" onclick="sendToGoogleForm()">Simpan ke Drive/Sheet</button>
+
 
     </div>
   </div>
@@ -257,38 +258,29 @@ document.getElementById('due_in').addEventListener('change', ()=>{ document.getE
 renderItemsList();
 
 /* --- JSONP send function (paste ke dalam <script> di faktur_penjualan.html) --- */
-function sendToAppsScriptJSONP(){
-  // ganti ini dengan URL Web App Anda
-  const webAppUrl = 'https://script.google.com/macros/s/AKfycbz_II9TvApxF5hSxv1Tth79It048OAIEMcoAQ4vhiMkh84RkEswOGPmgO-TUQXU3J2w/exec';
+function sendToGoogleForm() {
+  const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfax5UDB3lv1_T_8Dt1sLG4ZcCS2iU_TGTFa6sxgymhidw9Iw/formResponse"; // URL kirim form
+  
+  const data = new FormData();
+  data.append("entry.1812999661", document.getElementById('inv_no').textContent); // No Faktur
+  data.append("entry.1055333544", document.getElementById('date').textContent); // Tanggal
+  data.append("entry.1722081702", document.getElementById('due').textContent); // Jatuh Tempo
+  data.append("entry.1368283216", document.getElementById('customer').innerText); // Pelanggan
+  data.append("entry.1542407044", document.getElementById('subtotal').textContent); // Subtotal
+  data.append("entry.493669221", document.getElementById('discount_pct').value); // Diskon (%)
+  data.append("entry.2073823628", document.getElementById('tax_pct').value); // PPN (%)
+  data.append("entry.2004023891", document.getElementById('grand_total').textContent); // Total Akhir
+  data.append("entry.978023283", JSON.stringify(items)); // Barang dalam JSON
 
-  const payload = {
-    invoice_no: document.getElementById('inv_no').textContent,
-    date: document.getElementById('date').textContent,
-    due: document.getElementById('due').textContent,
-    customer: document.getElementById('customer').innerText,
-    subtotal: Number(document.getElementById('subtotal').textContent.replace(/[^0-9]/g,'')) || 0,
-    discount_pct: Number(document.getElementById('discount_pct').value) || 0,
-    tax_pct: Number(document.getElementById('tax_pct').value) || 0,
-    grand_total: Number(document.getElementById('grand_total').textContent.replace(/[^0-9]/g,'')) || 0
-  };
-
-  // callback handler
-  window._invoiceCallback = function(res){
-    console.log('JSONP response', res);
-    alert('Server: ' + (res.message || JSON.stringify(res)));
-    // cleanup
-    const s = document.getElementById('jsonp_invoke');
-    if(s) s.remove();
-    delete window._invoiceCallback;
-  };
-
-  // encode payload and call web app via script tag (JSONP)
-  const d = encodeURIComponent(JSON.stringify(payload));
-  const src = `${webAppUrl}?callback=_invoiceCallback&d=${d}`;
-  const script = document.createElement('script');
-  script.id = 'jsonp_invoke';
-  script.src = src;
-  document.body.appendChild(script);
+  fetch(formUrl, { method: "POST", mode: "no-cors", body: data })
+    .then(() => {
+      alert("✅ Faktur berhasil dikirim ke Google Sheet!");
+      console.log("Data dikirim:", Object.fromEntries(data));
+    })
+    .catch(err => {
+      alert("❌ Gagal mengirim data: " + err.message);
+      console.error(err);
+    });
 }
 
 
